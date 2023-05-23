@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mx-5 my-5">
+    {% if article.image %}
+        <img src="{{ article.image.url }}" style="max-width: 600px;" alt="{{ article.title }}">
+    {% endif %}
+
+    <h1>{{ article.title }}</h1>
+    <h5>{{ article.author }}</h5>
+    <p>{{ article.content }}</p>
+    <p>By {{ article.author }} on {{ article.created_at }}</p>
+    {% if request.user == article.author %}
+      <div class="form-group">
+        <a href="{% url 'article_edit' article.pk %}" class="btn btn-secondary">Edit</a>
+        <a href="{% url 'article_delete' article.pk %}" class="btn btn-danger">Delete</a>
+      </div>
+
+    {% elif request.user.is_staff %}
+        <a href="{% url 'article_edit' article.pk %}" class="btn btn-secondary">Edit</a>
+
+    {% if request.user.is_superuser %}
+        <a href="{% url 'article_delete' article.pk %}" class="btn btn-danger">Delete</a>
+    {% endif %}
+    {% endif %}
+    {% if article.url %}
+    <a href="{{ article.url }}">See in original source</a>
+    {% endif %}
+
+
+</div>
+
+     <!-- Comment Form -->
+  <form method="post">
+    {% csrf_token %}
+    {{ comment_form.as_p }}
+    <button type="submit" name="comment">Add Comment</button>
+  </form>
+
+    {% for comment in comments %}
+        <div>
+      <p>{{ comment.author }} on {{ comment.created_at|date }}</p>
+      <p>{{ comment.text }}</p>
+    </div>
+  {% empty %}
+    <p>No comments yet.</p>
+  {% endfor %}
+{% endblock %}
