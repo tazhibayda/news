@@ -34,7 +34,7 @@
             <div class="card mx-3 my-3"  style="min-width: 25%;">
             <h5 class="card-title"><a href="{{ article.id }}">{{ article.title}}</a></h5>
             {% if article.image %}
-                <img class="card-img-top" href="{{ article.id }}" src="{{ article.image.url }}" alt="Card image cap">
+                <img class="card-img-top" href="{{ article.id }}" src="{{ article.image }}" alt="Card image cap">
             {% endif %}
             <div class="card-body">
                 <p class="card-text">{{ article.content|truncatechars:100 }}</p>

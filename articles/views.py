@@ -1,17 +1,22 @@
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.utils import timezone
+import redis
+from django.conf import settings
 
 from django.core.files.storage import FileSystemStorage
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormMixin
+from datetime import datetime, timedelta
 
 from .forms import *
 from .models import Article
 from django.core.paginator import Paginator
 
+
+r = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
 
 class ArticleListView(ListView):
     model = Article
@@ -73,6 +78,26 @@ class ArticleDetailView(FormMixin, DetailView):
         else:
             return self.form_invalid(form)
 
+    def track_article_view(self):
+        today = datetime.now().date()
+        week_start = today - timedelta(days=today.weekday())  # Start of the week
+        month_start = today.replace(day=1)  # Start of the month
+
+        # Redis keys for tracking article views by day, week, and month
+        day_key = f"article:views:{self.object.id}:{today}"
+        week_key = f"article:views:{self.object.id}:{week_start}"
+        month_key = f"article:views:{self.object.id}:{month_start}"
+
+        # Increment view counts in Redis
+        r.incr(day_key)
+        r.expire(day_key, 86400)  # Expire after 1 day (24 hours)
+
+        r.incr(week_key)
+        r.expire(week_key, 604800)  # Expire after 7 days (1 week)
+
+        r.incr(month_key)
+        r.expire(month_key, 2592000)  # Expire after 30 days (1 month)
+
 
 class ArticleCreateView(LoginRequiredMixin, CreateView):
     model = Article
@@ -95,8 +120,6 @@ class ArticleCreateView(LoginRequiredMixin, CreateView):
         if self.request.user.is_superuser:
             return True
         return False
-
-
 
 
 class ArticleUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -129,5 +152,6 @@ class ArticleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         if self.request.user.is_superuser:
             return True
         return False
+
 
 

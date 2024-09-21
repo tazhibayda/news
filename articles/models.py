@@ -18,15 +18,15 @@ class Comment(models.Model):
 
 
 class Article(models.Model):
-    title = models.CharField(max_length=100)
-    source = models.CharField(max_length=100, null=True)
+    title = models.CharField(max_length=None)
+    source = models.CharField(max_length=None, null=True)
     content = models.TextField()
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     date_posted = models.DateTimeField(auto_now=True)
-    image = models.ImageField(upload_to='article_images', null=True)
+    image = models.CharField(null=True, blank=True, max_length=None)
     genres = models.ManyToManyField(Genre, blank=True)
-    url = models.CharField(max_length=100, null=True)
+    url = models.CharField(max_length=None, null=True, blank=True)
     comments = models.ManyToManyField(Comment, blank=True, related_name='articles_comments')
 
     def __str__(self):

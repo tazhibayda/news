@@ -3,7 +3,7 @@
 {% block content %}
 <div class="mx-5 my-5">
     {% if article.image %}
-        <img src="{{ article.image.url }}" style="max-width: 600px;" alt="{{ article.title }}">
+        <img src="{{ article.image}}" style="max-width: 600px;" alt="{{ article.title }}">
     {% endif %}
 
     <h1>{{ article.title }}</h1>
