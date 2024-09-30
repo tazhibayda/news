@@ -3,20 +3,18 @@ from django.db.models import Q
 from django.utils import timezone
 import redis
 from django.conf import settings
+from django.core.cache import cache
 
 from django.core.files.storage import FileSystemStorage
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.urls import reverse_lazy, reverse
 from django.views.generic.edit import FormMixin
-from datetime import datetime, timedelta
-
+from datetime import datetime, timedelta, time
 from .forms import *
 from .models import Article
 from django.core.paginator import Paginator
 
-
-r = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
 
 class ArticleListView(ListView):
     model = Article
@@ -60,7 +58,66 @@ class ArticleDetailView(FormMixin, DetailView):
         context = super().get_context_data(**kwargs)
         context['comment_form'] = CommentForm()
         context['comments'] = Comment.objects.filter(article__id=self.object.id)
+
+        # Get the session ID
+        session = self.request.session
+        session_key = f"viewed_article_{self.object.id}"
+
+        # Check if the session has already viewed the article
+        if not session.get(session_key):
+            # If not viewed, increment the view count in Redis
+            self.increment_article_views()
+
+            # Set a flag in the session to mark this article as viewed
+            session[session_key] = True
+            session.modified = True
+
         return context
+
+    def increment_article_views(self):
+
+        now = datetime.now()
+
+        # Day-based view count
+        day_key = f"article:views:{self.object.id}:day"
+        day_count = cache.get(day_key)
+        midnight = datetime.combine(now.date(), time())
+        seconds_since_midnight = (now - midnight).total_seconds()
+        day_time = int(seconds_since_midnight)
+
+        if day_count:
+            cache.set(day_key, day_count + 1, day_time)
+        else:
+            cache.set(day_key, 1, day_time)
+
+        # Week-based view count
+        week_key = f"article:views:{self.object.id}:week"
+        week_count = cache.get(week_key)
+        days_until_next_monday = (7 - now.weekday()) % 7
+        next_monday = now + timedelta(days=days_until_next_monday)
+        next_monday = next_monday.replace(hour=0, minute=0, second=0, microsecond=0)
+        seconds_to_next_week = (next_monday - now).total_seconds()
+        week_time = int(seconds_to_next_week)
+
+        if week_count:
+            cache.set(week_key, week_count + 1, week_time)
+        else:
+            cache.set(week_key, 1, week_time)
+
+        # Month-based view count
+        month_key = f"article:views:{self.object.id}:month"
+        month_count = cache.get(month_key)
+        if now.month == 12:
+            next_month = now.replace(year=now.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            next_month = now.replace(month=now.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        seconds_to_next_month = (next_month - now).total_seconds()
+        month_time = int(seconds_to_next_month)
+
+        if month_count:
+            cache.set(month_key, month_count + 1, month_time)
+        else:
+            cache.set(month_key, 1, month_time)
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
@@ -77,26 +134,6 @@ class ArticleDetailView(FormMixin, DetailView):
             return self.form_valid(form)
         else:
             return self.form_invalid(form)
-
-    def track_article_view(self):
-        today = datetime.now().date()
-        week_start = today - timedelta(days=today.weekday())  # Start of the week
-        month_start = today.replace(day=1)  # Start of the month
-
-        # Redis keys for tracking article views by day, week, and month
-        day_key = f"article:views:{self.object.id}:{today}"
-        week_key = f"article:views:{self.object.id}:{week_start}"
-        month_key = f"article:views:{self.object.id}:{month_start}"
-
-        # Increment view counts in Redis
-        r.incr(day_key)
-        r.expire(day_key, 86400)  # Expire after 1 day (24 hours)
-
-        r.incr(week_key)
-        r.expire(week_key, 604800)  # Expire after 7 days (1 week)
-
-        r.incr(month_key)
-        r.expire(month_key, 2592000)  # Expire after 30 days (1 month)
 
 
 class ArticleCreateView(LoginRequiredMixin, CreateView):
@@ -152,6 +189,4 @@ class ArticleDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         if self.request.user.is_superuser:
             return True
         return False
-
-
 

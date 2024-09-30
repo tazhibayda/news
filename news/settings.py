@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'articles',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -104,6 +105,10 @@ REDIS_PORT = '6379'
 #         'NAME': BASE_DIR / 'db.sqlite3',
 #     }
 # }
+
+CELERY_BROKER_URL = 'redis://localhost:6379/1'  # Or any other message broker like RabbitMQ
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
 
 
 # Password validation

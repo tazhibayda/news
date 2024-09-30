@@ -4,6 +4,7 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404
 from .models import Article
 from django.shortcuts import render
+from django.core.cache import cache
 
 # Initialize Redis connection
 r = redis.StrictRedis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=0)
@@ -49,9 +50,12 @@ def get_top_articles_of_month():
 
 
 def top_articles_of_day(request):
-    top_articles = get_top_articles_of_day()
-    return render(request, 'articles/top_articles.html', {'articles': top_articles, 'period': 'Today'})
-
+    cached_articles = cache.get_many(cache.keys("article:views:*:day"))
+    sorted_articles = sorted(cached_articles.items(), key=lambda item: item[1], reverse=True)
+    top = [(key.split(':')[2], count) for key, count in sorted_articles[:10]]
+    print(top)
+    # return render(request, 'articles/top_articles.html', {'articles': top_articles, 'period': 'Today'})
+    return render(request, "articles/top_articles.html")
 
 def top_articles_of_week(request):
     top_articles = get_top_articles_of_week()
